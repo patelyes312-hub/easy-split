@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0a0f1c" />
+    <title>EasySplit Live</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- ======== AUTH PAGE ======== -->
+    <section id="auth" class="auth-screen" hidden>
+      <form id="authForm" class="auth-card" novalidate>
+        <div class="brand"><span>£</span><b>EasySplit Live</b></div>
+        <h1 id="authTitle">Sign in</h1>
+        <p class="muted">Live shared expenses on every device.</p>
+        <label id="nameLabel" hidden
+          >Full name<input id="fullName" autocomplete="name"
+        /></label>
+        <label
+          >Email<input id="email" type="email" autocomplete="email" required
+        /></label>
+        <label
+          >Password
+          <div class="pw-wrap">
+            <input
+              id="password"
+              type="password"
+              minlength="6"
+              autocomplete="current-password"
+              required
+            />
+            <button type="button" class="pw-toggle" id="togglePw">Show</button>
+          </div>
+        </label>
+        <button id="authSubmit" class="btn-primary">Sign in</button>
+        <button type="button" class="btn-ghost" id="authToggle">
+          Create an account
+        </button>
+        <p id="authMessage"></p>
+      </form>
+    </section>
+
+    <!-- ======== APP SHELL (sidebar + content) ======== -->
+    <div id="shell" class="shell" hidden>
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#/dashboard"><span>£</span><b>EasySplit</b></a>
+        <nav class="side-nav" id="sideNav"></nav>
+        <div class="side-foot">
+          <div class="user-chip" id="userChip"></div>
+          <button class="btn-ghost sm" id="signOut">Sign out</button>
+        </div>
+      </aside>
+      <button class="side-toggle" id="sideToggle" aria-label="Menu">☰</button>
+      <main id="view" class="view"></main>
+    </div>
+
+    <!-- ======== MODAL ======== -->
+    <dialog id="modal">
+      <form method="dialog" id="form">
+        <div class="dialog-head">
+          <h2 id="modalTitle"></h2>
+          <button value="cancel" class="close" type="submit">×</button>
+        </div>
+        <div id="fields"></div>
+        <div class="dialog-actions">
+          <button value="cancel" class="btn-ghost" type="submit">Cancel</button>
+          <button id="save" value="default" class="btn-primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- ======== TOASTS ======== -->
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
