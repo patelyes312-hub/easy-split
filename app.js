@@ -133,7 +133,11 @@ function initAuthUI() {
     }
   };
   el("signOut").onclick = async () => { if (sb) await sb.auth.signOut(); };
-  el("sideToggle").onclick = () => el("shell").classList.toggle("side-open");
+  el("sideToggle").onclick = () => {
+    const open = el("shell").classList.toggle("side-open");
+    document.body.classList.toggle("no-scroll", open);
+  };
+  el("sideBackdrop").onclick = closeDrawer;
   applyMode();
 }
 
@@ -207,10 +211,15 @@ function renderSidebar(activeKey) {
   nav.querySelectorAll("[data-nav]").forEach((b) => {
     b.onclick = () => {
       location.hash = b.dataset.nav;
-      el("shell").classList.remove("side-open");
+      closeDrawer();
     };
   });
-  el("navNewGroup").onclick = () => { el("shell").classList.remove("side-open"); openNewGroup(); };
+  el("navNewGroup").onclick = () => { closeDrawer(); openNewGroup(); };
+}
+
+function closeDrawer() {
+  el("shell").classList.remove("side-open");
+  document.body.classList.remove("no-scroll");
 }
 
 /* =========================================================================
