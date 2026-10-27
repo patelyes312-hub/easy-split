@@ -46,6 +46,9 @@ create table if not exists public.expenses(
 -- balance. Settlements count toward balances but are excluded from spending charts.
 alter table public.expenses add column if not exists kind text not null default 'expense';
 
+-- Storage path of an optional uploaded receipt/bill image (in the 'receipts' bucket).
+alter table public.expenses add column if not exists receipt_path text;
+
 create table if not exists public.expense_splits(
   id uuid primary key default gen_random_uuid(),
   expense_id uuid not null references public.expenses(id) on delete cascade,
@@ -227,3 +230,27 @@ update public.group_members gm
 set role='owner'
 from public.groups g
 where gm.group_id=g.id and gm.user_id=g.created_by and gm.role<>'owner';
+
+/* ---------- Storage: receipts bucket ---------- */
+-- Public bucket so uploaded receipt images can be shown via a public URL.
+insert into storage.buckets (id, name, public)
+values ('receipts', 'receipts', true)
+on conflict (id) do update set public = true;
+
+-- Anyone can view receipt images (bucket is public). Only signed-in users may
+-- upload, and only to the 'receipts' bucket.
+drop policy if exists "receipts public read" on storage.objects;
+create policy "receipts public read" on storage.objects
+  for select to public using (bucket_id = 'receipts');
+
+drop policy if exists "receipts authenticated upload" on storage.objects;
+create policy "receipts authenticated upload" on storage.objects
+  for insert to authenticated with check (bucket_id = 'receipts');
+
+drop policy if exists "receipts owner update" on storage.objects;
+create policy "receipts owner update" on storage.objects
+  for update to authenticated using (bucket_id = 'receipts' and owner = auth.uid());
+
+drop policy if exists "receipts owner delete" on storage.objects;
+create policy "receipts owner delete" on storage.objects
+  for delete to authenticated using (bucket_id = 'receipts' and owner = auth.uid());

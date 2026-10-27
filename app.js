@@ -620,7 +620,11 @@ function tabExpenses() {
             const splits = (e.expense_splits || [])
               .map((s) => `${nm(s.member_id)} ${total > 0 ? ((Number(s.amount) / total) * 100).toFixed(0) : 0}%`)
               .join(" · ");
-            return `<div class="row"><span class="avatar">£</span><div class="grow"><b>${esc(e.description)}</b><span>${esc(e.expense_date)} · paid by ${nm(e.paid_by_member_id)}${splits ? " · " + splits : ""}</span></div><strong>${money(total)}</strong><button class="delete" data-del="${e.id}">Delete</button></div>`;
+            const rurl = receiptUrl(e.receipt_path);
+            const thumb = rurl
+              ? `<img class="receipt-thumb" src="${esc(rurl)}" alt="receipt" data-receipt="${esc(rurl)}" title="View receipt">`
+              : "";
+            return `<div class="row"><span class="avatar">£</span><div class="grow"><b>${esc(e.description)}</b><span>${esc(e.expense_date)} · paid by ${nm(e.paid_by_member_id)}${splits ? " · " + splits : ""}</span></div>${thumb}<strong>${money(total)}</strong><button class="delete" data-del="${e.id}">Delete</button></div>`;
           }).join("")
         : '<div class="empty">No expenses yet. Add your first one.</div>'
     }
@@ -668,6 +672,9 @@ function wireTabActions() {
       const { error } = await sb.from("expenses").delete().eq("id", btn.dataset.del);
       if (error) toast(error.message, "error"); else toast("Deleted.");
     };
+  });
+  document.querySelectorAll("[data-receipt]").forEach((img) => {
+    img.onclick = () => openLightbox(img.dataset.receipt);
   });
   document.querySelectorAll("[data-settle]").forEach((btn) => {
     btn.onclick = () => {
@@ -770,6 +777,8 @@ function openAddExpense() {
   el("fields").innerHTML = `
     <label>Description<input name="desc" id="xDesc" required placeholder="Dinner"></label>
     <label>Amount (£)<input name="amount" id="xAmount" type="number" min="0.01" step="0.01" required></label>
+    <label>Receipt / bill image (optional)<input type="file" id="xReceipt" accept="image/*"></label>
+    <div id="xReceiptPreview"></div>
     <label>Paid by<select name="payer" id="xPayer">${ms.map((m) => `<option value="${m.id}">${esc(m.display_name)}</option>`).join("")}</select></label>
     <label>Split method</label>
     <div class="seg" id="xMode">
@@ -847,6 +856,13 @@ function openAddExpense() {
   el("xAmount").oninput = renderSplits;
   renderSplits();
 
+  el("xReceipt").onchange = () => {
+    const f = el("xReceipt").files?.[0];
+    const prev = el("xReceiptPreview");
+    if (f) prev.innerHTML = `<img class="receipt-preview" src="${URL.createObjectURL(f)}" alt="receipt preview">`;
+    else prev.innerHTML = "";
+  };
+
   el("modal").showModal();
   el("form").onsubmit = async (e) => {
     if (e.submitter?.value === "cancel") return;
@@ -895,6 +911,16 @@ async function submitExpense(mode, state) {
     splits = on.map((m) => ({ member_id: m.id, amount: Math.round((state[m.id].val || 0) * 100) / 100 }));
   }
 
+  const receiptFile = el("xReceipt")?.files?.[0] || null;
+  if (receiptFile && !receiptFile.type.startsWith("image/")) {
+    toast("Receipt must be an image file.", "error");
+    return false;
+  }
+  if (receiptFile && receiptFile.size > 5 * 1024 * 1024) {
+    toast("Receipt image must be under 5 MB.", "error");
+    return false;
+  }
+
   const { data, error } = await sb
     .from("expenses")
     .insert({ group_id: detail.gid, description: desc, amount, paid_by_member_id: payer, created_by: session.user.id })
@@ -907,8 +933,40 @@ async function submitExpense(mode, state) {
     toast(r.error.message, "error");
     return false;
   }
+
+  // Optional receipt upload. If it fails, the expense still saves (receipt is best-effort).
+  if (receiptFile) {
+    const ext = (receiptFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${detail.gid}/${data.id}.${ext}`;
+    const up = await sb.storage.from("receipts").upload(path, receiptFile, {
+      upsert: true,
+      contentType: receiptFile.type,
+    });
+    if (up.error) {
+      toast("Expense saved, but the receipt failed to upload: " + up.error.message, "error");
+    } else {
+      await sb.from("expenses").update({ receipt_path: path }).eq("id", data.id);
+    }
+  }
+
   toast("Expense added.");
   await refreshDetail(detail.gid);
+}
+
+// Resolve a storage path to a public URL for display.
+function receiptUrl(path) {
+  if (!path) return null;
+  return sb.storage.from("receipts").getPublicUrl(path).data.publicUrl;
+}
+
+// Full-screen image viewer for a receipt.
+function openLightbox(url) {
+  const box = document.createElement("div");
+  box.className = "lightbox";
+  box.innerHTML = `<img src="${esc(url)}" alt="receipt"><button class="lightbox-close" aria-label="Close">×</button>`;
+  const close = () => box.remove();
+  box.onclick = (e) => { if (e.target === box || e.target.classList.contains("lightbox-close")) close(); };
+  document.body.appendChild(box);
 }
 
 function downloadCsv() {
